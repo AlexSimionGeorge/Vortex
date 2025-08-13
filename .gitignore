@@ -21,9 +21,12 @@ env/
 .idea/
 *.iml
 .junie/
+TODO.md
+/test_input/zeppelin.iglog
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints
+test_input/*
 
 # OS files
 .DS_Store

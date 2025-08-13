@@ -1,22 +1,35 @@
-from inspector_git.ig_log_reader import IGLogReader
+from __future__ import annotations
+
+from pathlib import Path
+import sys
+
+from src.inspector_git import IGLogReader, to_pretty_json
+
+DEFAULT_PATH = "/home/alex/Work/BachelorThesis/Vortex/test_input/inspector_git/zeppelin.iglog"
 
 
-def read_iglog_file():
-    """
-    Read the zeppelin.iglog file using IGLogReader.
-    """
+def main() -> int:
+    path = Path(DEFAULT_PATH)
+    if not path.exists():
+        print(f"Error: file not found: {path}")
+        return 1
+
     reader = IGLogReader()
-    file_path = "/home/alex/Work/BachelorThesis/Vortex/results/zeppelin-voyager-results/inspector-git/results/zeppelin.iglog"
-    git_log = reader.read(file_path)
-    print(f"Successfully read {git_log.name} with {len(git_log.commits)} commits")
-    return git_log
+    try:
+        gitlog = reader.read(path)
+    except Exception as e:
+        print(f"Error while reading {path}: {e}")
+        return 2
+
+    commits = gitlog.commits
+    if not commits:
+        print("No commits found in the .iglog file.")
+        return 0
+
+    # Print the first object (example)
+    print(to_pretty_json(commits[0]))
+    return 0
 
 
-if __name__ == '__main__':
-    git_log = read_iglog_file()
-    # You can process the git_log data further here
-
-    print(git_log.commits[0].parent_ids)
-    print(git_log.commits[0])
-
-
+if __name__ == "__main__":
+    raise SystemExit(main())
