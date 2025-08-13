@@ -1,0 +1,34 @@
+1.0
+ig#80c002df080fcbb670eebdb01579e87bba3d95ab
+616c0938d312e58c8ae74464e8841b52d1441a64
+2025-08-08 13:32:02 +0300
+test@example.com
+Test User
+$Added file2.txt
+#A
+616c0938d312e58c8ae74464e8841b52d1441a64
+/dev/null
+file2.txt
+@=1:5|0
+ig#616c0938d312e58c8ae74464e8841b52d1441a64
+770c31e11844462887d1b55255a1aec2618d85bf
+2025-08-08 13:32:02 +0300
+test@example.com
+Test User
+$Modified file1.txt
+#M
+770c31e11844462887d1b55255a1aec2618d85bf
+file1.txt
+file1.txt
+@=1:5|0
+ig#770c31e11844462887d1b55255a1aec2618d85bf
+2025-08-08 13:32:02 +0300
+Test User
+Initial commit
+test@example.com
+$
+#A
+2025-08-08
+/dev/null
+file1.txt
+@=1:5|0
