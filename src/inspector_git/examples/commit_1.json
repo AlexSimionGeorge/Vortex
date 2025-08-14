@@ -1,0 +1,149 @@
+{
+  "id": "d512bdeb12010d94f47b464d2e424d3ae03fa7d0",
+  "parent_ids": [
+    "ec716cf6e8725dc456db42d11a1972aa78d9de91"
+  ],
+  "author_date": "Wed Jun 19 15:35:47 2013 +0900",
+  "author_email": "corbacho.anthony@gmail.com",
+  "author_name": "anthony corbacho",
+  "committer_date": "Wed Jun 19 15:35:47 2013 +0900",
+  "committer_email": "corbacho.anthony@gmail.com",
+  "committer_name": "anthony corbacho",
+  "message": "Update .gitignore",
+  "changes": [
+    {
+      "old_file_name": ".gitignore",
+      "new_file_name": ".gitignore",
+      "type": "Modify",
+      "parent_commit_id": "ec716cf6e8725dc456db42d11a1972aa78d9de91",
+      "binary": false,
+      "hunks": [
+        {
+          "added_line_changes": [
+            {
+              "operation": "Add",
+              "number": 7,
+              "content": null
+            },
+            {
+              "operation": "Add",
+              "number": 8,
+              "content": null
+            },
+            {
+              "operation": "Add",
+              "number": 9,
+              "content": null
+            },
+            {
+              "operation": "Add",
+              "number": 10,
+              "content": null
+            },
+            {
+              "operation": "Add",
+              "number": 11,
+              "content": null
+            },
+            {
+              "operation": "Add",
+              "number": 12,
+              "content": null
+            },
+            {
+              "operation": "Add",
+              "number": 13,
+              "content": null
+            },
+            {
+              "operation": "Add",
+              "number": 14,
+              "content": null
+            },
+            {
+              "operation": "Add",
+              "number": 15,
+              "content": null
+            },
+            {
+              "operation": "Add",
+              "number": 16,
+              "content": null
+            },
+            {
+              "operation": "Add",
+              "number": 17,
+              "content": null
+            },
+            {
+              "operation": "Add",
+              "number": 18,
+              "content": null
+            },
+            {
+              "operation": "Add",
+              "number": 19,
+              "content": null
+            },
+            {
+              "operation": "Add",
+              "number": 20,
+              "content": null
+            },
+            {
+              "operation": "Add",
+              "number": 21,
+              "content": null
+            },
+            {
+              "operation": "Add",
+              "number": 22,
+              "content": null
+            },
+            {
+              "operation": "Add",
+              "number": 23,
+              "content": null
+            },
+            {
+              "operation": "Add",
+              "number": 24,
+              "content": null
+            },
+            {
+              "operation": "Add",
+              "number": 25,
+              "content": null
+            },
+            {
+              "operation": "Add",
+              "number": 26,
+              "content": null
+            },
+            {
+              "operation": "Add",
+              "number": 27,
+              "content": null
+            },
+            {
+              "operation": "Add",
+              "number": 28,
+              "content": null
+            },
+            {
+              "operation": "Add",
+              "number": 29,
+              "content": null
+            },
+            {
+              "operation": "Add",
+              "number": 30,
+              "content": null
+            }
+          ],
+          "deleted_line_changes": []
+        }
+      ]
+    }
+  ]
+}

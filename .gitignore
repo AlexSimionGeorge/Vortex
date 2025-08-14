@@ -22,11 +22,11 @@ env/
 *.iml
 .junie/
 TODO.md
-/test_input/zeppelin.iglog
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints
 test_input/*
+/src/inspector_git/examples/gitlog_full.json
 
 # OS files
 .DS_Store
