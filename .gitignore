@@ -25,7 +25,7 @@ TODO.md
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints
-test_input/*
+test-input/*
 /src/inspector_git/examples/gitlog_full.json
 
 # OS files

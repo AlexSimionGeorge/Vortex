@@ -1,38 +1,38 @@
-from __future__ import annotations
 import json
 from pathlib import Path
-from src.inspector_git import IGLogReader, to_pretty_json
+from pprint import pprint
 
-DEFAULT_PATH = "/home/alex/Work/BachelorThesis/Vortex/test_input/inspector_git/zeppelin.iglog"
+from jira_miner.loader import LoadModels
 
 
-def main() -> int:
-    path = Path(DEFAULT_PATH)
-    if not path.exists():
-        print(f"Error: file not found: {path}")
-        return 1
+def main():
+    statuses, types_, issues = LoadModels.read(
+        "/home/alex/Work/BachelorThesis/Vortex/test-input/jira-miner/ZEPPELIN-detailed-issues.json"
+    )
 
-    reader = IGLogReader()
-    try:
-        gitlog = reader.read(path)
-    except Exception as e:
-        print(f"Error while reading {path}: {e}")
-        return 2
+    # print("\n--- Issue Statuses ---")
+    # pprint([status.model_dump() for status in statuses])
+    #
+    # print("\n--- Issue Types ---")
+    # pprint([it.model_dump() for it in types_])
 
-    i = 0
-    while i < len(gitlog.commits):
-        commit = gitlog.commits[i]
-        if len(commit.parent_ids) >= 2:
-            break
-        i += 1
+    print("\n--- Issues ---")
+    # print(type(issues[0].subTasks))
+    # pprint(issues[0].subTasks)
 
-    output_path = Path(f"commit_{i}.json")
-    with open(output_path, "w", encoding="utf-8") as f:
-        print(to_pretty_json(gitlog.commits[i]), file=f)
 
-    print(f"Full gitlog data written to {output_path.resolve()}")
-    return 0
+    for issue in issues:
+        if issue.parent and len(issue.parent) > 16:
+            # print(type(issue.creatorId))
+            pprint(issue.parent)
+
+
+
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    if False:
+        helper("/home/alex/Work/BachelorThesis/Vortex/test-input/jira-miner/ZEPPELIN-detailed-issues.json", "comments")
+    else:
+        main()
+
