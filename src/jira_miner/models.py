@@ -1,4 +1,4 @@
-from typing import List, Optional, Dict, Any, Union
+from typing import List, Optional, Dict
 from pydantic import BaseModel, Field
 from datetime import datetime
 
@@ -83,7 +83,7 @@ class User(BaseModel):
     self_:str = Field(..., alias="self")
 
 
-class JsonFileFormat(BaseModel):
+class JsonFileFormatJira(BaseModel):
     issueStatuses: List[IssueStatus] = []
     issueTypes: List[IssueType] = []
     issues: List[Issue] = []
