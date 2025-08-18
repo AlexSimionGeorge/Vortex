@@ -39,7 +39,7 @@ class Comment(BaseModel):
     updated:datetime = Field(..., description="The date the comment was updated")
     userId:str = Field(..., description="The user id of the comment")
 
-class Issue(BaseModel): # check issues with this class on a certain json file use /scripts/jira_issues_class.py
+class Issue(BaseModel): # check issues with this class on a certain json file use /scripts/JSON_structure_extractor.py
     # COMMON fields
     changes: List[Change] = []
     comments: List[Comment] = []
@@ -76,12 +76,17 @@ class Issue(BaseModel): # check issues with this class on a certain json file us
 
 
 
-
+class User(BaseModel):
+    avatarUrl: str = Field(..., alias="avatarUrl")
+    key: str = Field(..., description="The key of the user")
+    name:str = Field(..., description="The name of the user")
+    self_:str = Field(..., alias="self")
 
 
 class JsonFileFormat(BaseModel):
     issueStatuses: List[IssueStatus] = []
     issueTypes: List[IssueType] = []
     issues: List[Issue] = []
+    users: List[User] = []
 
 Issue.model_rebuild()

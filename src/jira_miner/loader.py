@@ -2,11 +2,12 @@ import json
 from pathlib import Path
 from typing import List, Tuple
 from .models import IssueStatus, IssueType, Issue, JsonFileFormat
+from .models.models import User
 
 
 class LoadModels:
     @staticmethod
-    def read(path: str) -> Tuple[List[IssueStatus], List[IssueType], List[Issue]]:
+    def read(path: str) -> Tuple[List[IssueStatus], List[IssueType], List[Issue], List[User]]:
         file_path = Path(path)
 
         if not file_path.exists():
@@ -16,4 +17,4 @@ class LoadModels:
             data = json.load(f)
 
         parsed = JsonFileFormat.model_validate(data)
-        return parsed.issueStatuses, parsed.issueTypes, parsed.issues
+        return parsed.issueStatuses, parsed.issueTypes, parsed.issues, parsed.users
