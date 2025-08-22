@@ -36,7 +36,7 @@ class Comment(BaseModel):
     updatedAt: datetime = Field()
     url: str = Field()
 
-class Commit(BaseModel):
+class CommitGitHubMiner(BaseModel):
     author: Optional[UserGithub] = Field(None)
     changedFiles: int = Field()
     date: datetime = Field()
@@ -66,7 +66,7 @@ class PullRequest(BaseModel):
     changedFiles: int = Field()
     closedAt: Optional[datetime] = Field(None)
     comments: List[Comment] = Field()
-    commits: List[Commit] = Field()
+    commits: List[CommitGitHubMiner] = Field()
     createdAt: datetime = Field()
     labels: List[Label] = Field()
     mergedAt: Optional[datetime] = Field()
