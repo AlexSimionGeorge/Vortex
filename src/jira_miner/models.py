@@ -24,7 +24,6 @@ class ChangeItem(BaseModel):
     to: Optional[str] = None
     toString: Optional[str] = None
 
-
 class Change(BaseModel):
     changedFields: List[str] = Field(..., description="The fields changed")
     created:datetime = Field(..., description="The date the issue was created")
@@ -63,7 +62,7 @@ class Issue(BaseModel): # check issues with this class on a certain json file us
     # OPTIONAL fields
     assigneeId: Optional[str] = Field(None)
     creatorId : Optional[str] = Field(None)
-    parent: Optional[str] = Field(None)
+    parent: Optional[str] = Field(None) # key of other issue
 
     # taken out of C# extractor for ScriptBee
     # TODO vezi care i faza cu astea
@@ -71,17 +70,13 @@ class Issue(BaseModel): # check issues with this class on a certain json file us
     # assignee: Optional[Dict] = None
     # reporter: Optional[Dict] = None
     # parentId: Optional[str] = None
-    # subTasksIds: Optional[List[str]] = None
     # components: List[Dict] = []
-
-
 
 class User(BaseModel):
     avatarUrl: str = Field(..., alias="avatarUrl")
     key: str = Field(..., description="The key of the user")
     name:str = Field(..., description="The name of the user")
     self_:str = Field(..., alias="self")
-
 
 class JsonFileFormatJira(BaseModel):
     issueStatuses: List[IssueStatus] = []

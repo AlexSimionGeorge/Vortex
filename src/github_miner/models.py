@@ -71,6 +71,7 @@ class PullRequest(BaseModel):
     labels: List[Label] = Field()
     mergedAt: Optional[datetime] = Field()
     number: int = Field()
+
     reviewRequests: List[RequestedReviewer] = Field()
     reviews: List[Review] = Field()
     state: str = Field()
