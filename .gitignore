@@ -23,7 +23,7 @@ env/
 .junie/
 TODO.md
 /src/notebooks/pickle_data/*
-
+/src/notebook_flat_graph/pickle_data/*
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints
 test-input/*
