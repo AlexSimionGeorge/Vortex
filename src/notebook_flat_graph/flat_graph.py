@@ -1,8 +1,10 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Optional, Literal, Any, Dict, List, Union, ClassVar, Tuple, Callable
-from pydantic import BaseModel, Field
+from typing import Optional, Literal, Any, Dict, List, Union, ClassVar, Tuple, Callable, Set
+from pydantic import BaseModel, Field, PrivateAttr
+
+from src.inspector_git import GitLogDTO
 
 
 # --------------------
@@ -115,7 +117,6 @@ class GitHubCommit(NodeBase):
 # --------------------
 # Edge models
 # --------------------
-
 class EdgeBase(BaseModel, ABC):
     node_type_map: ClassVar[Dict[str, str]]
 
@@ -129,6 +130,15 @@ class EdgeBase(BaseModel, ABC):
         """Return a list of node identifiers involved in this edge."""
         pass
 
+    @abstractmethod
+    def edge_key(self) -> str:
+        """
+        Return a unique string (or other hashable type)
+        that represents this edge.
+        Must be implemented by all subclasses.
+        """
+        pass
+
     def edge_type_for_node(self, node_key: str) -> str:
         """Return the type of the node connected to `node_key` in this edge."""
         for prefix, edge_type in self.node_type_map.items():
@@ -138,17 +148,23 @@ class EdgeBase(BaseModel, ABC):
 
     def other_node(self, node_key: str):
         """Return the actual neighbor node object given one node key."""
-        # get the field that corresponds to that key
         for field_name, value in self.__dict__.items():
             if hasattr(value, "dict_key") and value.dict_key() == node_key:
-                # find the other field
                 for f2, v2 in self.__dict__.items():
                     if f2 != field_name and hasattr(v2, "dict_key"):
                         return v2
         raise ValueError(f"Node {node_key} not found in this edge {self}")
 
     def __str__(self):
-        return self.model_dump()
+        return str(self.model_dump())
+
+    def __hash__(self):
+        return hash(self.edge_key())
+
+    def __eq__(self, other):
+        if not isinstance(other, EdgeBase):
+            return False
+        return self.edge_key() == other.edge_key()
 
 class GitCommitGitUserEdge(EdgeBase):
     commit: GitCommit
@@ -163,6 +179,10 @@ class GitCommitGitUserEdge(EdgeBase):
     def get_nodes_identifier(self) -> List[str]:
         return [self.commit.dict_key(),self.git_user.dict_key()]
 
+    def edge_key(self) -> str:
+        return f"{self.commit.dict_key()}->{self.git_user.dict_key()}|{self.role}"
+
+
 class GitCommitFileEdge(EdgeBase):
     commit: GitCommit
     file: File
@@ -175,6 +195,9 @@ class GitCommitFileEdge(EdgeBase):
 
     def get_nodes_identifier(self) -> List[str]:
         return [self.commit.dict_key(),self.file.dict_key()]
+
+    def edge_key(self) -> str:
+        return f"{self.commit.dict_key()}->{self.file.dict_key()}"
 
 class GitUserFileEdge(EdgeBase):
     git_user: GitUser
@@ -189,6 +212,9 @@ class GitUserFileEdge(EdgeBase):
     def get_nodes_identifier(self) -> List[str]:
         return [self.git_user.dict_key() ,self.file.dict_key()]
 
+    def edge_key(self) -> str:
+        return f"{self.git_user.dict_key()}->{self.file.dict_key()}|{self.role}"
+
 class IssueStatusIssueStatusCategoryEdge(EdgeBase):
     issue_status: IssueStatus
     issue_status_category: IssueStatusCategory
@@ -200,6 +226,9 @@ class IssueStatusIssueStatusCategoryEdge(EdgeBase):
 
     def get_nodes_identifier(self) -> List[str]:
         return [self.issue_status.dict_key(),self.issue_status_category.dict_key()]
+
+    def edge_key(self) -> str:
+        return f"{self.issue_status.dict_key()}->{self.issue_status_category.dict_key()}"
 
 class IssueIssueStatusEdge(EdgeBase):
     issue_status: IssueStatus
@@ -213,6 +242,9 @@ class IssueIssueStatusEdge(EdgeBase):
     def get_nodes_identifier(self) -> List[str]:
         return [self.issue_status.dict_key(),self.issue.dict_key()]
 
+    def edge_key(self) -> str:
+        return f"{self.issue_status.dict_key()}->{self.issue.dict_key()}"
+
 class IssueIssueTypeEdge(EdgeBase):
     issue_type: IssueType
     issue: Issue
@@ -224,6 +256,9 @@ class IssueIssueTypeEdge(EdgeBase):
 
     def get_nodes_identifier(self) -> List[str]:
         return [self.issue_type.dict_key(),self.issue.dict_key()]
+
+    def edge_key(self) -> str:
+        return f"{self.issue_type.dict_key()}->{self.issue.dict_key()}"
 
 class IssueJiraUserEdge(EdgeBase):
     issue: Issue
@@ -238,6 +273,9 @@ class IssueJiraUserEdge(EdgeBase):
     def get_nodes_identifier(self) -> List[str]:
         return [self.jira_user.dict_key(),self.jira_user.dict_key()]
 
+    def edge_key(self) -> str:
+        return f"{self.jira_user.dict_key()}->{self.issue.dict_key()}|{self.role}"
+
 class IssueIssueEdge(EdgeBase):
     child: Issue
     parent: Issue
@@ -250,6 +288,9 @@ class IssueIssueEdge(EdgeBase):
     def normalized_key(self) -> frozenset:
         """Return a unique, order-independent key for this edge."""
         return frozenset(self.get_nodes_identifier())
+
+    def edge_key(self) -> str:
+        return f"{self.child.dict_key()}->{self.parent.dict_key()}"
 
 class PullRequestGitHubUserEdge(EdgeBase):
     pr: PullRequest
@@ -264,6 +305,9 @@ class PullRequestGitHubUserEdge(EdgeBase):
     def get_nodes_identifier(self) -> List[str]:
         return [self.git_hub_user.dict_key(),self.pr.dict_key()]
 
+    def edge_key(self) -> str:
+        return f"{self.git_hub_user.dict_key()}->{self.pr.dict_key()}|{self.role}"
+
 class PullRequestGitHubCommitEdge(EdgeBase):
     pr: PullRequest
     commit: GitHubCommit
@@ -274,6 +318,9 @@ class PullRequestGitHubCommitEdge(EdgeBase):
 
     def get_nodes_identifier(self) -> List[str]:
         return [self.commit.dict_key(),self.pr.dict_key()]
+
+    def edge_key(self) -> str:
+        return f"{self.commit.dict_key()}->{self.pr.dict_key()}"
 
 class GitCommitIssueEdge(EdgeBase):
     git_commit: GitCommit
@@ -287,6 +334,9 @@ class GitCommitIssueEdge(EdgeBase):
     def get_nodes_identifier(self) -> List[str]:
         return [self.git_commit.dict_key(),self.issue.dict_key()]
 
+    def edge_key(self) -> str:
+        return f"{self.git_commit.dict_key()}->{self.issue.dict_key()}"
+
 class PullRequestIssueEdge(EdgeBase):
     pr: PullRequest
     issue: Issue
@@ -298,6 +348,9 @@ class PullRequestIssueEdge(EdgeBase):
 
     def get_nodes_identifier(self) -> List[str]:
         return [self.issue.dict_key(),self.pr.dict_key()]
+
+    def edge_key(self) -> str:
+        return f"{self.pr.dict_key()}->{self.issue.dict_key()}"
 
 class GitCommitPullRequestEdge(EdgeBase):
     git_commit: GitCommit
@@ -313,19 +366,8 @@ class GitCommitPullRequestEdge(EdgeBase):
         return [self.git_commit.dict_key(), self.pr.dict_key()]
 
     def edge_key(self) -> str:
-        """
-        Returns a unique string representing this edge,
-        based on git_commit, PR, and relation.
-        """
         return f"{self.git_commit.dict_key()}->{self.pr.dict_key()}|{self.relation}"
 
-    def __hash__(self):
-        return hash(self.edge_key())
-
-    def __eq__(self, other):
-        if not isinstance(other, GitCommitPullRequestEdge):
-            return False
-        return self.edge_key() == other.edge_key()
 
 class Graph(BaseModel):
     # Nodes
@@ -348,6 +390,7 @@ class Graph(BaseModel):
 
     # Edges
     edges: List[EdgeBase] = Field(default_factory=list)
+    _edges_keyset: set = PrivateAttr(default_factory=set)
 
     # Adjacency maps for fast traversal
     adjacency: Dict[str, Dict[str, List[EdgeBase]]] = Field(default_factory=dict)
@@ -358,10 +401,29 @@ class Graph(BaseModel):
     def add_user_git(self, user: GitUser) -> None:
         self.users_git[user.dict_key()] = user
 
+    count: Optional[int] = 0
+
     def add_file(self, file: File, old_name: str | None = None) -> None:
-        if old_name and old_name in self.files:
-            old_file = File(path=old_name)
-            del self.files[old_file.dict_key()]
+        if old_name and f"File:{old_name}" in self.files.keys() and old_name != file.path:
+            self.count += 1
+            adjacency_value = self.adjacency.get(f"File:{old_name}", {})
+
+            for edge in adjacency_value.get("git_users", []):
+                self._edges_keyset.discard(edge.edge_key())
+                edge.file = file
+                self._edges_keyset.add(edge.edge_key())
+
+            for edge in adjacency_value.get("git_commits", []):
+                self._edges_keyset.discard(edge.edge_key())
+                edge.file = file
+                self._edges_keyset.add(edge.edge_key())
+
+            if f"File:{old_name}" in self.files.keys():
+                del self.files[f"File:{old_name}"]
+
+            if adjacency_value:
+                del self.adjacency[f"File:{old_name}"]
+
         self.files[file.dict_key()] = file
 
     def add_issue_status(self, issue_status: IssueStatus) -> None:
@@ -400,6 +462,9 @@ class Graph(BaseModel):
     def add_pull_request(self, pull_request: PullRequest) -> None:
         self.pull_requests[pull_request.dict_key()] = pull_request
 
+    def get_pull_request(self, number:int) -> PullRequest:
+        return self.pull_requests.get(f"PullRequest:{number}", None)
+
     def add_git_hub_user(self, git_hub_user: GitHubUser) -> None:
         self.git_hub_users[git_hub_user.dict_key()] = git_hub_user
 
@@ -407,7 +472,11 @@ class Graph(BaseModel):
         self.git_hub_commits[git_hub_commit.dict_key()] = git_hub_commit
 
     def add_edge(self, edge) -> None:
+        if edge.edge_key() in self._edges_keyset:
+            return
+
         self.edges.append(edge)
+        self._edges_keyset.add(edge.edge_key())
 
         identifiers = edge.get_nodes_identifier()
 
@@ -482,6 +551,48 @@ class Graph(BaseModel):
 
     def __str__(self) -> str:
         return self.summary()
+
+
+    def add_inspector_git_data(self, inspector_git_data: GitLogDTO):
+        git_date_format = "%a %b %d %H:%M:%S %Y %z"
+
+        for commitDTO in inspector_git_data.commits:
+            commit = GitCommit(
+                sha=commitDTO.id,
+                message=commitDTO.message,
+                author_date=datetime.strptime(commitDTO.author_date, git_date_format),
+                committer_date=datetime.strptime(commitDTO.committer_date, git_date_format)
+            )
+            self.add_commit(commit)
+
+            author = GitUser(email=commitDTO.author_email, name=commitDTO.author_name)
+            committer = GitUser(email=commitDTO.committer_email, name=commitDTO.committer_name)
+            self.add_user_git(author)
+            self.add_user_git(committer)
+
+            author_edge = GitCommitGitUserEdge(commit=commit, git_user=author, role="author")
+            committer_edge = GitCommitGitUserEdge(commit=commit, git_user=committer, role="committer")
+            self.add_edge(author_edge)
+            self.add_edge(committer_edge)
+
+            for change in commitDTO.changes:
+                file = File(path=change.new_file_name)
+                if (
+                    change.new_file_name != change.old_file_name
+                    and change.new_file_name != "/dev/null"
+                    and change.old_file_name != "/dev/null"
+                ):
+                    self.count += 1
+                self.add_file(file=file, old_name=change.old_file_name)
+
+                file_commit_edge = GitCommitFileEdge(commit=commit, file=file)
+                file_writer_edge = GitUserFileEdge(git_user=committer, file=file, role="writer")
+                self.add_edge(file_commit_edge)
+                self.add_edge(file_writer_edge)
+
+                if author.email != committer.email:
+                    file_reviewer_edge = GitUserFileEdge(git_user=author, file=file, role="reviewer")
+                    self.add_edge(file_reviewer_edge)
 
 
 __all__ = [
