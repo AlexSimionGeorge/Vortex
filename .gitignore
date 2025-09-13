@@ -28,7 +28,7 @@ TODO.md
 .ipynb_checkpoints
 test-input/*
 /src/inspector_git/examples/gitlog_full.json
-
+/src/inspector_git/guidelines.txt
 # OS files
 .DS_Store
 Thumbs.db
