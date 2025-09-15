@@ -1,20 +1,43 @@
-from src.inspector_git.iglog.readers.ig_log_reader import IGLogReader
+from pathlib import Path
 
-def main():
-    path_inspector_git = "../test-input/inspector-git/zeppelin.iglog"
+from src.inspector_git.linker.transformers import GitProjectTransformer
+from src.inspector_git.reader.iglog.readers.ig_log_reader import IGLogReader
 
-    reader = IGLogReader()
+# 🔹 1. Set the path to a single .iglog file
+iglog_path = Path("../test-input/inspector-git/TestInspectorGitRepo.iglog")
 
-    with open(path_inspector_git, "r", encoding="utf-8") as stream:
-        git_log = reader.read(stream)
+# 🔹 2. Read the IGLog file
+with open(iglog_path, "r", encoding="utf-8") as f:
+    git_log_dto = IGLogReader().read(f)
 
-    print(f"Număr commit-uri citite: {len(git_log.commits)}")
-    for idx, commit in enumerate(git_log.commits[:5], start=1):  # afișăm doar primele 5 pentru test
-        print(f"\nCommit {idx}:")
-        print(f"  ID: {commit.id}")
-        print(f"  Author: {commit.author_name} <{commit.author_email}>")
-        print(f"  Date: {commit.author_date}")
-        print(f"  Message: {commit.message.strip() if commit.message else ''}")
+# 🔹 3. Transform into a project (compute_annotated_lines=True)
+transformer = GitProjectTransformer(
+    git_log_dto,
+    name=iglog_path.stem,
+    compute_annotated_lines=True,
+)
+project = transformer.transform()
 
-if __name__ == "__main__":
-    main()
+# # 🔹 4. Collect annotated lines from all changes
+# results = {}
+# for commit in project.commit_registry.all:
+#     if commit.is_merge_commit:
+#         continue
+#     for change in commit.changes:
+#         results[f"{change.file.path}@{commit.id}"] = {
+#             "annotatedLines": [
+#                 {
+#                     "lineNumber": line.line_number,
+#                     "author": line.author,
+#                     "commitId": line.commit.id if line.commit else None,
+#                 }
+#                 for line in change.annotated_lines
+#             ]
+#         }
+#
+# # 🔹 5. Save to JSON
+# output_path = iglog_path.parent / "output.json"
+# with open(output_path, "w", encoding="utf-8") as out:
+#     json.dump(results, out, indent=2)
+#
+# print(f"Results written to {output_path}")
