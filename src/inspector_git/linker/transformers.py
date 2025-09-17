@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Optional, List
 from src.inspector_git.linker.exceptions import NoChangeException
-import logging
 from src.inspector_git.linker.models import (
     Commit,
     GitProject,
@@ -17,15 +16,10 @@ from src.inspector_git.reader.dto.gitlog.commit_dto import CommitDTO
 from src.inspector_git.reader.dto.gitlog.git_log_dto import GitLogDTO
 from src.inspector_git.reader.enums.chnage_type import ChangeType as ChangeTypeDTO
 from datetime import datetime
-
 from src.inspector_git.utils.constants import parse_commit_date
+from src.logger import get_logger
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-)
-
-LOG = logging.getLogger(__name__)
+LOG = get_logger(__name__)
 
 class ChangeFactory(ABC):
     @abstractmethod
@@ -380,7 +374,7 @@ class GitProjectTransformer:
         self,
         git_log_dto: GitLogDTO,
         name: str = "Project",
-        compute_annotated_lines: bool = True,
+        compute_annotated_lines: bool = False,
         change_factory: Optional[ChangeFactory] = None,
     ):
         self.git_log_dto = git_log_dto

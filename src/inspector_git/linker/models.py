@@ -350,10 +350,12 @@ class Change(BaseModel):
     def added_lines(self) -> List[LineChange]:
         return [lc for hunk in self.hunks for lc in hunk.added_lines]
 
-    def __init__(self, **data):
-        super().__init__(**data)
-        if not self.file.is_binary and self.compute_annotated_lines:
-            self._apply_line_changes(self.parent_change)
+    @model_validator(mode="after")
+    @classmethod
+    def apply_line_changes(cls, model: "Change") -> "Change":
+        if not model.file.is_binary and model.compute_annotated_lines:
+            model._apply_line_changes(model.parent_change)
+        return model
 
     def _apply_line_changes(self, parent_change: Optional["Change"]) -> None:
         try:
