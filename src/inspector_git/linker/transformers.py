@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from collections import deque
 from typing import Optional, List
 from src.inspector_git.linker.exceptions import NoChangeException
 from src.inspector_git.linker.models import (
@@ -65,15 +66,19 @@ class SimpleChangeFactory(ChangeFactory):
 class ChangeTransformer:
     @staticmethod
     def get_last_change(parent_commit: Commit, file_name: str) -> Change:
-        found = next((c for c in parent_commit.changes if c.new_file_name == file_name), None)
-        if found is not None:
-            return found
-        # determine next parent or raise
-        parents = parent_commit.parents
-        next_parent = parents[0] if parents and len(parents) > 0 else None
-        if next_parent is None:
-            raise NoChangeException(file_name)
-        return ChangeTransformer.get_last_change(next_parent, file_name)
+        stack = [parent_commit]
+
+        while stack:
+            commit = stack.pop()
+
+            found = next((c for c in commit.changes if c.new_file_name == file_name), None)
+            if found is not None:
+                return found
+
+            if commit.parents:
+                stack.extend(reversed(commit.parents))  # preserve order
+
+        raise NoChangeException(file_name)
 
     @staticmethod
     def transform(
