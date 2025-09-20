@@ -1,35 +1,12 @@
 from __future__ import annotations
 from enum import Enum
 from pydantic import BaseModel, Field, model_validator
-from abc import ABC, abstractmethod
+from src.common.models import Project, Account
 from src.inspector_git.linker.registry import AccountRegistry, CommitRegistry, FileRegistry, ChangeRegistry
-from typing import List, Type, TypeVar, Optional, Collection
+from typing import List, Optional, Collection
 import uuid
 from src.inspector_git.utils.constants import DEV_NULL
 from datetime import datetime, timedelta
-
-class Account(BaseModel, ABC):
-    name: str
-    project: Optional[Project] = None
-    developer: Optional[Developer] = None
-
-    class Config:
-        arbitrary_types_allowed = True
-
-    @property
-    @abstractmethod
-    def id(self) -> str:
-        ...
-
-    def __eq__(self, other: object) -> bool:
-        if self is other:
-            return True
-        if not isinstance(other, Account):
-            return False
-        return self.id == other.id
-
-    def __hash__(self) -> int:
-        return hash(self.id)
 
 class GitAccountId(BaseModel):
     email: str
@@ -98,29 +75,6 @@ class GitAccount(Account):
     def __str__(self) -> str:
         return str(self.git_id)
 
-AccountType = TypeVar("AccountType", bound=Account)
-class Developer(BaseModel):
-    name: str
-    accounts: list[Account] = Field(default_factory=list)
-
-    def get_accounts_of_type(self, account_type: Type[AccountType]) -> list[AccountType]:
-        return [account for account in self.accounts if isinstance(account, account_type)]
-
-    class Config:
-        arbitrary_types_allowed = True
-
-class Project(BaseModel, ABC):
-    linked_projects: set[Project] = Field(default_factory=set)
-
-    class Config:
-        arbitrary_types_allowed = True
-
-    def link(self, other: Project) -> None:
-        self.linked_projects.add(other)
-
-    def is_linked(self, other: Project) -> bool:
-        return other in self.linked_projects
-
 class GitProject(Project):
     name: str
     account_registry: AccountRegistry = Field(default_factory=AccountRegistry)
@@ -188,7 +142,7 @@ class GitProject(Project):
             list(self.file_registry.all),
             list(self.change_registry.all),
         )
-        return (self._rebuild, state)
+        return self._rebuild, state
 
     @classmethod
     def _rebuild(
@@ -287,7 +241,7 @@ class File(BaseModel):
         state = (self.is_binary,
                  [c.id for c in self.changes],
                  self.id,)
-        return (self._rebuild, state)
+        return self._rebuild, state
 
     @classmethod
     def _rebuild(
@@ -632,9 +586,6 @@ Commit.model_rebuild()
 Change.model_rebuild()
 
 __all__ = [
-    "Account",
-    "Developer",
-    "Project",
     "GitProject",
     "LineOperation",
     "ChangeType",
