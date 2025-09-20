@@ -6,7 +6,7 @@ from uuid import UUID
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from src.inspector_git.linker.models import Account, Commit, File
+    from src.inspector_git.linker.models import Account, Commit, File, Change
 
 TYPE = TypeVar("TYPE")
 ID = TypeVar("ID")
@@ -77,6 +77,9 @@ class FileRegistry(AbstractRegistry["File", UUID]):
     def get_id(self, entity: "File") -> UUID:
         return entity.id
 
+class ChangeRegistry(AbstractRegistry["Change", str]):
+    def get_id(self, entity: "Change") -> str:
+        return entity.id
 
 
 

@@ -2,15 +2,15 @@ from __future__ import annotations
 from enum import Enum
 from pydantic import BaseModel, Field, model_validator
 from abc import ABC, abstractmethod
-from src.inspector_git.linker.registry import AccountRegistry, CommitRegistry, FileRegistry
-from typing import List, Type, TypeVar, Optional
+from src.inspector_git.linker.registry import AccountRegistry, CommitRegistry, FileRegistry, ChangeRegistry
+from typing import List, Type, TypeVar, Optional, Collection
 import uuid
 from src.inspector_git.utils.constants import DEV_NULL
 from datetime import datetime, timedelta
 
 class Account(BaseModel, ABC):
     name: str
-    project: Project
+    project: Optional[Project] = None
     developer: Optional[Developer] = None
 
     class Config:
@@ -31,8 +31,6 @@ class Account(BaseModel, ABC):
     def __hash__(self) -> int:
         return hash(self.id)
 
-
-
 class GitAccountId(BaseModel):
     email: str
     name: str
@@ -44,7 +42,6 @@ class GitAccount(Account):
     git_id: GitAccountId
     commits: List[Commit] = Field(default_factory=list)
 
-    # this runs after init, before validation is done
     @model_validator(mode="before")
     @classmethod
     def set_account_fields(cls, data: dict):
@@ -77,6 +74,16 @@ class GitAccount(Account):
     @property
     def files(self) -> List[File]:
         return list({change.file for change in self.changes})
+
+    def __reduce__(self):
+        state = (self.git_id, [c.id for c in self.commits])
+        return self._rebuild, state
+
+    @classmethod
+    def _rebuild(cls, id: GitAccountId, commits: List[str]):
+        obj = cls(git_id=id, name=id.name)
+        obj._commits = commits
+        return obj
 
     def __eq__(self, other: object) -> bool:
         if self is other:
@@ -119,8 +126,97 @@ class GitProject(Project):
     account_registry: AccountRegistry = Field(default_factory=AccountRegistry)
     commit_registry: CommitRegistry = Field(default_factory=CommitRegistry)
     file_registry: FileRegistry = Field(default_factory=FileRegistry)
+    change_registry: ChangeRegistry = Field(default_factory=ChangeRegistry)
 
-    model_config = {"arbitrary_types_allowed": True}
+    class Config:
+        arbitrary_types_allowed = True
+
+    def _relink_objects(self):
+        for account in self.account_registry.all:
+            if hasattr(account, "_commits"):
+                for c in account._commits:
+                    commit = self.commit_registry.get_by_id(c)
+                    account.commits.append(commit)
+
+        for commit in self.commit_registry.all:
+            if hasattr(commit, "_author"): # should never be none
+                author = self.account_registry.get_by_id(commit._author.__str__())
+                commit.author = author
+            if hasattr(commit, "_committer"): # should never be none
+                committer = self.account_registry.get_by_id(commit._committer.__str__())
+                commit.committer = committer
+            if hasattr(commit, "_parents"):
+                for p in commit._parents:
+                    commit.parents.append(self.commit_registry.get_by_id(p))
+            if hasattr(commit, "_children"):
+                for c in commit._children:
+                    commit.children.append(self.commit_registry.get_by_id(c))
+            if hasattr(commit, "_changes"):
+                for c in commit._changes:
+                    change = self.change_registry.get_by_id(c)
+                    commit.changes.append(change)
+
+        for file in self.file_registry.all:
+            if hasattr(file, "_changes"):
+                for c in file._changes:
+                    change = self.change_registry.get_by_id(c)
+                    file.changes.append(change)
+
+        for change in self.change_registry.all:
+            if hasattr(change, "_commit"): # should never be none
+                commit = self.commit_registry.get_by_id(change._commit)
+                change.commit = commit
+            if hasattr(change, "_file"): # should never be none
+                file = self.file_registry.get_by_id(change._file)
+                change.file = file
+            if hasattr(change, "_parent_commit") and change._parent_commit is not None:
+                parent_commit = self.commit_registry.get_by_id(change._parent_commit)
+                change.parent_commit = parent_commit
+            if hasattr(change, "_annotated_lines"):
+                for c in change._annotated_lines:
+                    commit = self.commit_registry.get_by_id(c)
+                    change.annotated_lines.append(commit)
+            if hasattr(change, "_parent_change"):
+                parent_change = self.change_registry.get_by_id(change._parent_change)
+                change.parent_change = parent_change
+
+    def __reduce__(self):
+        state = (
+            self.name,
+            list(self.account_registry.all),
+            list(self.commit_registry.all),
+            list(self.file_registry.all),
+            list(self.change_registry.all),
+        )
+        return (self._rebuild, state)
+
+    @classmethod
+    def _rebuild(
+        cls,
+        name: str,
+        accounts: Collection[GitAccount],
+        commits: Collection[Commit],
+        files: Collection[File],
+        changes: Collection[Change],
+    ):
+        # Create empty registries
+        obj = cls(
+            name=name,
+            account_registry=AccountRegistry(),
+            commit_registry=CommitRegistry(),
+            file_registry=FileRegistry(),
+            change_registry=ChangeRegistry(),
+        )
+
+        # Fill registries from the saved collections
+        obj.account_registry.add_all(accounts)
+        obj.commit_registry.add_all(commits)
+        obj.file_registry.add_all(files)
+        obj.change_registry.add_all(changes)
+
+        obj._relink_objects()
+
+        return obj
 
 class LineOperation(Enum):
     ADD = "ADD"
@@ -179,12 +275,34 @@ class Hunk(BaseModel):
 
 class File(BaseModel):
     is_binary: bool
-    project: GitProject
+    project: Optional[GitProject] = None
     changes: List[Change] = Field(default_factory=list)
     id: uuid.UUID = Field(default_factory=uuid.uuid4)
 
     class Config:
         arbitrary_types_allowed = True
+
+    def __reduce__(self):
+        # Instead of storing Student objects, store only IDs
+        state = (self.is_binary,
+                 [c.id for c in self.changes],
+                 self.id,)
+        return (self._rebuild, state)
+
+    @classmethod
+    def _rebuild(
+            cls,
+            is_binary: bool,
+            change_ids: List[uuid.UUID],
+            id: uuid.UUID,
+    ):
+        obj = cls(
+            is_binary=is_binary,
+            changes=[],
+            id=id,
+        )
+        obj._changes = change_ids
+        return obj
 
     def is_alive(self, commit: Optional[Commit] = None) -> bool:
         last = self.get_last_change(commit)
@@ -250,13 +368,13 @@ class File(BaseModel):
         return str(self.changes[-1].new_file_name if self.changes else "nu stiu")
 
 class Commit(BaseModel):
-    project: GitProject
+    project: Optional[GitProject] = None
     id: str
     message: str
     author_date: datetime
     committer_date: datetime
-    author: GitAccount
-    committer: GitAccount
+    author: Optional[GitAccount] = None # this is optional to not cause problems in the loading process after serialization
+    committer: Optional[GitAccount] = None # same as above
     parents: List[Commit] = Field(default_factory=list)
     children: List[Commit] = Field(default_factory=list)
     changes: List[Change] = Field(default_factory=list)
@@ -308,6 +426,57 @@ class Commit(BaseModel):
     def is_split_commit(self) -> bool:
         return len(self.children) > 1
 
+    def __reduce__(self):
+        state = (self.id,
+                 self.message,
+                 self.author_date,
+                 self.committer_date,
+                 self.author.git_id,
+                 self.committer.git_id,
+                 [p.id for p in self.parents],
+                 [c.id for c in self.children],
+                 [c.id for c in self.changes],
+                 self.branch_id,
+                 self.repo_size,)
+        return self._rebuild, state
+
+    @classmethod
+    def _rebuild(
+            cls,
+            id: str,
+            message: str,
+            author_date: datetime,
+            committer_date: datetime,
+            author_id: GitAccountId,
+            committer_id: GitAccountId,
+            parent_ids: List[str],
+            child_ids: List[str],
+            change_ids: List[str],
+            branch_id: int,
+            repo_size: int,
+    ):
+        obj = cls(
+            id=id,
+            message=message,
+            author_date=author_date,
+            committer_date=committer_date,
+            author=None,
+            committer=None,
+            parents=[],
+            children=[],
+            changes=[],
+            branch_id=branch_id,
+            repo_size=repo_size,
+        )
+        # Store IDs temporarily for later linking
+        obj._author = author_id
+        obj._committer = committer_id
+        obj._parents = parent_ids
+        obj._children = child_ids
+        obj._changes = change_ids
+
+        return obj
+
     def add_child(self, commit: Commit) -> None:
         self.children = [*self.children, commit]
 
@@ -320,11 +489,12 @@ class Commit(BaseModel):
         return self.id
 
 class Change(BaseModel):
-    commit: Commit
+    id: str
+    commit: Optional[Commit] = None # to not cause errors during loading after serialization
     change_type: ChangeType
     old_file_name: str
     new_file_name: str
-    file: File
+    file: Optional[File] = None
     parent_commit: Optional[Commit] = None
     hunks: List[Hunk] = Field(default_factory=list)
     annotated_lines: List[Commit] = Field(default_factory=list)
@@ -334,9 +504,16 @@ class Change(BaseModel):
     class Config:
         arbitrary_types_allowed = True
 
-    @property
-    def id(self) -> str:
-        return f"{self.commit.id}-{self.old_file_name}->{self.new_file_name}"
+    @model_validator(mode="before")
+    @classmethod
+    def set_id(cls, values):
+        if values.get("id") is None:
+            commit = values.get("commit")
+            old_name = values.get("old_file_name")
+            new_name = values.get("new_file_name")
+            if commit and old_name and new_name:
+                values["id"] = f"{commit.id}-{old_name}->{new_name}"
+        return values
 
     @property
     def line_changes(self) -> List[LineChange]:
@@ -353,9 +530,60 @@ class Change(BaseModel):
     @model_validator(mode="after")
     @classmethod
     def apply_line_changes(cls, model: "Change") -> "Change":
-        if not model.file.is_binary and model.compute_annotated_lines:
+        if model.compute_annotated_lines and not model.file.is_binary:
             model._apply_line_changes(model.parent_change)
         return model
+
+    def __reduce__(self):
+        state = (self.id,
+                 self.commit.id,
+                 self.change_type,
+                 self.old_file_name,
+                 self.new_file_name,
+                 self.file.id,
+                 self.parent_commit.id if self.parent_commit else None,
+                 self.hunks,
+                 [a.id for a in self.annotated_lines],
+                 self.parent_change.id if self.parent_change else None,
+                 self.compute_annotated_lines)
+        return self._rebuild, state
+
+    @classmethod
+    def _rebuild(
+            cls,
+            id: str,
+            commit_id: str,
+            change_type: ChangeType,
+            old_file_name: str,
+            new_file_name: str,
+            file_id: uuid.UUID,
+            parent_commit_id: Optional[str],
+            hunks: list,
+            annotated_line_ids: List[str],
+            parent_change_id: Optional[str],
+            compute_annotated_lines: bool,
+    ):
+        obj = cls(
+            id=id,
+            commit=None,  # will attach later
+            change_type=change_type,
+            old_file_name=old_file_name,
+            new_file_name=new_file_name,
+            file=None,  # will attach later
+            parent_commit=None,
+            hunks=hunks,
+            annotated_lines=[],
+            parent_change=None,
+            compute_annotated_lines=compute_annotated_lines,
+        )
+        # Store IDs for later linking
+        obj._commit = commit_id
+        obj._file = file_id
+        obj._parent_commit = parent_commit_id
+        obj._annotated_line = annotated_line_ids
+        obj._parent_change = parent_change_id
+
+        return obj
 
     def _apply_line_changes(self, parent_change: Optional["Change"]) -> None:
         try:

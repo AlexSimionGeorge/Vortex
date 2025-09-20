@@ -121,7 +121,7 @@ class ChangeTransformer:
         file_for_change = ChangeTransformer._get_file_for_change(change_dto, last_change, project)
         hunks = ChangeTransformer._get_hunks(last_change, change_dto, commit)
 
-        return change_factory.create(
+        change =  change_factory.create(
             commit=commit,
             change_type=ChangeType[getattr(change_dto, "type").name],
             old_file_name=getattr(change_dto, "old_file_name"),
@@ -132,6 +132,8 @@ class ChangeTransformer:
             parent_change=last_change,
             compute_annotated_lines=compute_annotated_lines,
         )
+        project.change_registry.add(change)
+        return change
 
     @staticmethod
     def _get_hunks(last_change: Optional[Change], change_dto: ChangeDTO, commit: Commit) -> List[Hunk]:
@@ -363,7 +365,7 @@ class CommitTransformer:
     def _get_account(git_account_id: GitAccountId, project: GitProject) -> GitAccount:
         account = project.account_registry.get_by_id(str(git_account_id))
         if account is None:
-            account = GitAccount(git_id = git_account_id, project = project)
+            account = GitAccount(git_id = git_account_id, project = project, name= git_account_id.name)
             project.account_registry.add(account)
         return account
 
