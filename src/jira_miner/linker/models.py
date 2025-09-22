@@ -1,12 +1,12 @@
 from __future__ import annotations
 from datetime import datetime
-from pydantic import BaseModel, Field
-from typing import List, Optional
-
+from pydantic import BaseModel, Field, model_validator
+from typing import List, Optional, TYPE_CHECKING
 from src.common.models import Project
 from src.jira_miner.linker.registries import IssueStatusCategoryRegistry, IssueStatusRegistry, IssueRegistry, \
     IssueTypeRegistry, JiraUserRegistry
-
+if TYPE_CHECKING:
+    from src.inspector_git.linker.models import GitCommit
 
 class IssueStatusCategory(BaseModel):
     key: str
@@ -143,7 +143,6 @@ class JiraProject(Project):
             and self.issue_registry._map == other.issue_registry._map
             and self.jira_user_registry._map == other.jira_user_registry._map
         )
-
 
 IssueStatusCategory.model_rebuild()
 IssueStatus.model_rebuild()

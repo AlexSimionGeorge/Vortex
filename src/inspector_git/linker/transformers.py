@@ -3,7 +3,7 @@ from collections import deque
 from typing import Optional, List
 from src.inspector_git.linker.exceptions import NoChangeException
 from src.inspector_git.linker.models import (
-    Commit,
+    GitCommit,
     GitProject,
     Change,
     File,
@@ -26,12 +26,12 @@ class ChangeFactory(ABC):
     @abstractmethod
     def create(
         self,
-        commit: Commit,
+        commit: GitCommit,
         change_type: ChangeType,
         old_file_name: str,
         new_file_name: str,
         file: File,
-        parent_commit: Optional[Commit],
+        parent_commit: Optional[GitCommit],
         hunks: List[Hunk],
         parent_change: Optional[Change],
         compute_annotated_lines: bool
@@ -41,12 +41,12 @@ class ChangeFactory(ABC):
 class SimpleChangeFactory(ChangeFactory):
     def create(
         self,
-        commit: Commit,
+        commit: GitCommit,
         change_type: ChangeType,
         old_file_name: str,
         new_file_name: str,
         file: File,
-        parent_commit: Optional[Commit],
+        parent_commit: Optional[GitCommit],
         hunks: List[Hunk],
         parent_change: Optional[Change],
         compute_annotated_lines: bool
@@ -65,7 +65,7 @@ class SimpleChangeFactory(ChangeFactory):
 
 class ChangeTransformer:
     @staticmethod
-    def get_last_change(parent_commit: Commit, file_name: str) -> Change:
+    def get_last_change(parent_commit: GitCommit, file_name: str) -> Change:
         stack = [parent_commit]
 
         while stack:
@@ -83,7 +83,7 @@ class ChangeTransformer:
     @staticmethod
     def transform(
         change_dto: ChangeDTO,
-        commit: Commit,
+        commit: GitCommit,
         project: GitProject,
         compute_annotated_lines: bool,
         change_factory: ChangeFactory,
@@ -93,7 +93,7 @@ class ChangeTransformer:
         Returns None if the change cannot be transformed (e.g., NoChangeException).
         """
         # resolve parent commit (None if empty)
-        parent_commit: Optional[Commit]
+        parent_commit: Optional[GitCommit]
         if not change_dto.parent_commit_id:
             parent_commit = None
         else:
@@ -149,7 +149,7 @@ class ChangeTransformer:
         return change
 
     @staticmethod
-    def _get_hunks(last_change: Optional[Change], change_dto: ChangeDTO, commit: Commit) -> List[Hunk]:
+    def _get_hunks(last_change: Optional[Change], change_dto: ChangeDTO, commit: GitCommit) -> List[Hunk]:
         LOG.debug("Calculating line changes")
         if last_change is not None and last_change.file.is_binary:
             return []
@@ -184,7 +184,7 @@ class MergeChangesTransformer:
     @staticmethod
     def transform(
         change_dtos: List[ChangeDTO],
-        commit: Commit,
+        commit: GitCommit,
         project: GitProject,
         compute_annotated_lines: bool,
         change_factory: ChangeFactory,
@@ -200,7 +200,7 @@ class MergeChangesTransformer:
         return MergeChangesTransformer._fix_changes(changes, commit, project)
 
     @staticmethod
-    def _fix_changes(changes: List[Change], commit: Commit, project: GitProject) -> List[Change]:
+    def _fix_changes(changes: List[Change], commit: GitCommit, project: GitProject) -> List[Change]:
         LOG.debug("Merging %s changes", len(changes))
 
         missing_change: Optional[Change] = None
@@ -214,7 +214,7 @@ class MergeChangesTransformer:
         return changes
 
     @staticmethod
-    def _get_missing_change(changes: List[Change], commit: Commit) -> Change:
+    def _get_missing_change(changes: List[Change], commit: GitCommit) -> Change:
         clean_parent = next(
             (p for p in commit.parents if all(c.parent_commit != p for c in changes)),
             None,
@@ -246,7 +246,7 @@ class MergeChangesTransformer:
                 project.file_registry.delete(f)
 
     @staticmethod
-    def _fix_annotated_lines_commits(changes: List[Change], missing_change: Optional[Change], commit: Commit) -> None:
+    def _fix_annotated_lines_commits(changes: List[Change], missing_change: Optional[Change], commit: GitCommit) -> None:
         if missing_change is not None:
             changes[0].annotated_lines = list(missing_change.annotated_lines)
 
@@ -298,7 +298,7 @@ class CommitTransformer:
             else CommitTransformer._parse_date(commit_dto.committer_date)
         )
 
-        commit = Commit(
+        commit = GitCommit(
             project=project,
             id=commit_dto.id,
             message=commit_dto.message,
@@ -331,7 +331,7 @@ class CommitTransformer:
         LOG.debug("Done creating commit with id: %s", commit_dto.id)
 
     @staticmethod
-    def _compute_commit_growth(commit: Commit) -> int:
+    def _compute_commit_growth(commit: GitCommit) -> int:
         return sum(
             len(ch.added_lines) - len(ch.deleted_lines)
             for ch in commit.changes
@@ -339,7 +339,7 @@ class CommitTransformer:
         )
 
     @staticmethod
-    def _get_parent_commit_size(commit: Commit) -> int:
+    def _get_parent_commit_size(commit: GitCommit) -> int:
         return commit.parents[0].repo_size if commit.parents else 0
 
     @staticmethod
@@ -350,7 +350,7 @@ class CommitTransformer:
     @staticmethod
     def _add_changes_to_commit(
         changes: List[ChangeDTO],
-        commit: Commit,
+        commit: GitCommit,
         project: GitProject,
         compute_annotated_lines: bool,
         change_factory: ChangeFactory,
@@ -394,7 +394,7 @@ class CommitTransformer:
         return account
 
     @staticmethod
-    def _get_parents_from_ids(parent_ids: List[str], project: GitProject) -> List[Commit]:
+    def _get_parents_from_ids(parent_ids: List[str], project: GitProject) -> List[GitCommit]:
         return [p for pid in parent_ids if (p := project.commit_registry.get_by_id(pid)) is not None]
 
 class GitProjectTransformer:
@@ -434,7 +434,7 @@ class GitProjectTransformer:
         LOG.info("Done creating GIT project %s", self.name)
         return project
 
-    def _compute_branch_ids(self, commit: Commit) -> None:
+    def _compute_branch_ids(self, commit: GitCommit) -> None:
         parents = commit.parents
         if commit.is_merge_commit:
             commit.branch_id = parents[0].branch_id if parents else 0

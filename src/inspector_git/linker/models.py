@@ -3,11 +3,12 @@ from enum import Enum
 from pydantic import BaseModel, Field, model_validator
 from src.common.models import Project, Account
 from src.inspector_git.linker.registry import AccountRegistry, CommitRegistry, FileRegistry, ChangeRegistry
-from typing import List, Optional, Collection
+from typing import List, Optional, Collection, TYPE_CHECKING
 import uuid
 from src.inspector_git.utils.constants import DEV_NULL
 from datetime import datetime, timedelta
 from src.logger import get_logger
+from src.jira_miner.linker.models import Issue
 
 LOG = get_logger(__name__)
 
@@ -20,7 +21,7 @@ class GitAccountId(BaseModel):
 
 class GitAccount(Account):
     git_id: GitAccountId
-    commits: List[Commit] = Field(default_factory=list)
+    commits: List[GitCommit] = Field(default_factory=list)
 
     @model_validator(mode="before")
     @classmethod
@@ -216,7 +217,7 @@ class GitProject(Project):
         cls,
         name: str,
         accounts: Collection[GitAccount],
-        commits: Collection[Commit],
+        commits: Collection[GitCommit],
         files: Collection[File],
         changes: Collection[Change],
     ):
@@ -252,7 +253,7 @@ class ChangeType(Enum):
 class LineChange(BaseModel):
     operation: LineOperation
     line_number: int
-    commit: Commit
+    commit: GitCommit
 
     def __eq__(self, other):
         if not isinstance(other, LineChange):
@@ -325,23 +326,23 @@ class File(BaseModel):
         obj._changes = change_ids
         return obj
 
-    def is_alive(self, commit: Optional[Commit] = None) -> bool:
+    def is_alive(self, commit: Optional[GitCommit] = None) -> bool:
         last = self.get_last_change(commit)
         typ = last.change_type if last is not None else None
         return typ is not None and typ is not ChangeType.DELETE
 
-    def annotated_lines(self, commit: Optional[Commit] = None) -> List[Commit]:
+    def annotated_lines(self, commit: Optional[GitCommit] = None) -> List[GitCommit]:
         last = self.get_last_change(commit)
         return last.annotated_lines if (last is not None and getattr(last, "annotated_lines", None) is not None) else []
 
-    def full_path(self, commit: Optional[Commit] = None) -> Optional[str]:
+    def full_path(self, commit: Optional[GitCommit] = None) -> Optional[str]:
         last = self.get_last_change(commit)
         if last is None:
             return None
         new_file_name = getattr(last, "new_file_name", None)
         return f"{self.project.name}/{new_file_name}" if new_file_name is not None else None
 
-    def file_name(self, commit: Optional[Commit] = None) -> Optional[str]:
+    def file_name(self, commit: Optional[GitCommit] = None) -> Optional[str]:
         rel = self.relative_path(commit)
         if rel is None:
             return None
@@ -350,18 +351,18 @@ class File(BaseModel):
         idx = rel.rfind("/")
         return rel if idx == -1 else rel[idx + 1 :]
 
-    def relative_path(self, commit: Optional[Commit] = None) -> Optional[str]:
+    def relative_path(self, commit: Optional[GitCommit] = None) -> Optional[str]:
         last = self.get_last_change(commit)
         return getattr(last, "new_file_name", None) if last is not None else None
 
-    def get_last_change(self, commit: Optional[Commit] = None) -> Optional[Change]:
+    def get_last_change(self, commit: Optional[GitCommit] = None) -> Optional[Change]:
         if not self.changes:
             return None
         if commit is None:
             return self.changes[-1]
         return self._get_last_change_recursively(commit)
 
-    def _get_last_change_recursively(self, commit: Commit) -> Optional[Change]:
+    def _get_last_change_recursively(self, commit: GitCommit) -> Optional[Change]:
         found = next((c for c in self.changes if getattr(c, "commit", None) == commit), None)
         if found is not None:
             return found
@@ -388,7 +389,7 @@ class File(BaseModel):
     def __str__(self) -> str:
         return str(self.changes[-1].new_file_name if self.changes else "nu stiu")
 
-class Commit(BaseModel):
+class GitCommit(BaseModel):
     project: Optional[GitProject] = None
     id: str
     message: str
@@ -396,19 +397,18 @@ class Commit(BaseModel):
     committer_date: datetime
     author: Optional[GitAccount] = None # this is optional to not cause problems in the loading process after serialization
     committer: Optional[GitAccount] = None # same as above
-    parents: List[Commit] = Field(default_factory=list)
-    children: List[Commit] = Field(default_factory=list)
+    parents: List[GitCommit] = Field(default_factory=list)
+    children: List[GitCommit] = Field(default_factory=list)
     changes: List[Change] = Field(default_factory=list)
-    # issues: Set[Issue] = Field(default_factory=set)
-    # pull_requests: Set[PullRequest] = Field(default_factory=set)
-    # remote_info: Optional[CommitRemoteInfo] = None
     branch_id: int = 0
     repo_size: int = 0
+
+    issues: List["Issue"] = Field(default_factory=list)
 
     class Config:
         arbitrary_types_allowed = True
 
-    def older_than(self, age: timedelta, other: Commit) -> bool:
+    def older_than(self, age: timedelta, other: GitCommit) -> bool:
         try:
             threshold = other.committer_date - age
         except Exception:
@@ -419,7 +419,7 @@ class Commit(BaseModel):
     def __eq__(self, other: object) -> bool:
         if self is other:
             return True
-        if not isinstance(other, Commit):
+        if not isinstance(other, GitCommit):
             return False
         return (
             self.id == other.id
@@ -498,10 +498,10 @@ class Commit(BaseModel):
 
         return obj
 
-    def add_child(self, commit: Commit) -> None:
+    def add_child(self, commit: GitCommit) -> None:
         self.children = [*self.children, commit]
 
-    def is_after_in_tree(self, other: Commit) -> bool:
+    def is_after_in_tree(self, other: GitCommit) -> bool:
         if other in self.parents:
             return True
         return any(parent.is_after_in_tree(other) for parent in self.parents)
@@ -511,14 +511,14 @@ class Commit(BaseModel):
 
 class Change(BaseModel):
     id: str
-    commit: Optional[Commit] = None # to not cause errors during loading after serialization
+    commit: Optional[GitCommit] = None # to not cause errors during loading after serialization
     change_type: ChangeType
     old_file_name: str
     new_file_name: str
     file: Optional[File] = None
-    parent_commit: Optional[Commit] = None
+    parent_commit: Optional[GitCommit] = None
     hunks: List[Hunk] = Field(default_factory=list)
-    annotated_lines: List[Commit] = Field(default_factory=list)
+    annotated_lines: List[GitCommit] = Field(default_factory=list)
     parent_change: Optional[Change] = None
     compute_annotated_lines: bool = False
 
@@ -649,7 +649,7 @@ LineChange.model_rebuild()
 Hunk.model_rebuild()
 GitAccountId.model_rebuild()
 File.model_rebuild()
-Commit.model_rebuild()
+GitCommit.model_rebuild()
 Change.model_rebuild()
 
 __all__ = [
@@ -661,7 +661,7 @@ __all__ = [
     "GitAccountId",
     "GitAccount",
     "File",
-    "Commit",
+    "GitCommit",
     "Change",
 ]
 

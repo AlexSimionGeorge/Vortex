@@ -52,6 +52,10 @@ class Developer(BaseModel):
     class Config:
         arbitrary_types_allowed = True
 
+class ProjectManager(BaseModel):
+    name: str
+    projects: list[Project] = Field(default_factory=list)
+
 
 Account.model_rebuild()
 
