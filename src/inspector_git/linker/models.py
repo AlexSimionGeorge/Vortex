@@ -115,6 +115,7 @@ class GitProject(Project):
                     LOG.warning(f"Could not find commit {c} in commit registry")
                 account.commits.append(commit)
         del account._commits
+        account.project = self
 
         for commit in self.commit_registry.all:
             author = self.account_registry.get_by_id(commit._author.__str__())
@@ -151,6 +152,9 @@ class GitProject(Project):
             del commit._children
             del commit._changes
 
+            commit.project = self
+
+
         for file in self.file_registry.all:
             for c in file._changes:
                 change = self.change_registry.get_by_id(c)
@@ -159,6 +163,8 @@ class GitProject(Project):
                 file.changes.append(change)
 
             del file._changes
+
+            file.project = self
 
         for change in self.change_registry.all:
             commit = self.commit_registry.get_by_id(change._commit) # should field _commit must exist
