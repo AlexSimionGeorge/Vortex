@@ -2,16 +2,8 @@ from abc import ABC, abstractmethod
 from collections import deque
 from typing import Optional, List
 from src.inspector_git.linker.exceptions import NoChangeException
-from src.inspector_git.linker.models import (
-    GitCommit,
-    GitProject,
-    Change,
-    File,
-    Hunk,
-    LineChange,
-    LineOperation,
-    ChangeType, GitAccount, GitAccountId,
-)
+from src.common.models import GitAccountId, GitAccount, GitProject, LineOperation, ChangeType, LineChange, Hunk, File, \
+    GitCommit, Change
 from src.inspector_git.reader.dto.gitlog.chnage_dto import ChangeDTO
 from src.inspector_git.reader.dto.gitlog.commit_dto import CommitDTO
 from src.inspector_git.reader.dto.gitlog.git_log_dto import GitLogDTO

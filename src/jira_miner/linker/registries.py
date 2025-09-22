@@ -4,7 +4,7 @@ from src.common.registries import AbstractRegistry
 
 if TYPE_CHECKING:
     # Only imported for type hints, not at runtime
-    from src.jira_miner.linker.models import IssueStatusCategory, IssueStatus, IssueType, Issue, JiraUser
+    from src.common.models import IssueStatusCategory, IssueStatus, IssueType, Issue, JiraUser
 
 
 class IssueStatusCategoryRegistry(AbstractRegistry["IssueStatusCategory", str]):

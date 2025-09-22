@@ -3,7 +3,8 @@ from typing import TYPE_CHECKING
 from src.common.registries import AbstractRegistry
 
 if TYPE_CHECKING:
-    from src.github_miner.linker.models import GitHubUser, PullRequest, GitHubCommit
+    from src.common.models import GitHubUser, PullRequest, GitHubCommit
+
 
 class GitHubUserRegistry(AbstractRegistry["GitHubUser", str]):
     def get_id(self, entity: "GitHubUser") -> str:

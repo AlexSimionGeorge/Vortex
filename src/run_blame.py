@@ -1,6 +1,6 @@
 import subprocess
 import re
-from src.inspector_git.linker.models import GitProject
+from src.common.models import GitProject
 from src.logger import get_logger
 
 logger = get_logger(__name__)

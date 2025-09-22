@@ -6,8 +6,7 @@ from typing import TYPE_CHECKING
 from src.common.registries import AbstractRegistry
 
 if TYPE_CHECKING:
-    from src.inspector_git.linker.models import GitCommit, File, Change
-    from src.common.models import Account
+    from src.common.models import Account, File, GitCommit, Change
 
 
 class AccountRegistry(AbstractRegistry["Account", str]):

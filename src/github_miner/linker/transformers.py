@@ -1,5 +1,5 @@
 from src.github_miner import JsonFileFormatGithub
-from src.github_miner.linker.models import GitHubProject, PullRequest, GitHubUser, GitHubCommit
+from src.common.models import GitHubUser, PullRequest, GitHubCommit, GitHubProject
 
 
 class GitHubProjectTransformer:

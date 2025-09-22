@@ -1,9 +1,7 @@
 import re
 from typing import Union
 
-from src.common.models import Project
-from src.inspector_git.linker.models import GitProject
-from src.jira_miner.linker.models import JiraProject
+from src.common.models import Project, GitProject, JiraProject
 
 
 def get_or_add(container: list, element):

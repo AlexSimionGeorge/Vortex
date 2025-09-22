@@ -1,4 +1,4 @@
-from src.jira_miner.linker.models import JiraProject, IssueStatusCategory, IssueStatus, IssueType, JiraUser, Issue
+from src.common.models import IssueStatusCategory, IssueStatus, IssueType, Issue, JiraUser, JiraProject
 from src.jira_miner.reader_dto.models import JsonFileFormatJira
 
 
