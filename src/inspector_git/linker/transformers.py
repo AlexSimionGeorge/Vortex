@@ -121,6 +121,19 @@ class ChangeTransformer:
         file_for_change = ChangeTransformer._get_file_for_change(change_dto, last_change, project)
         hunks = ChangeTransformer._get_hunks(last_change, change_dto, commit)
 
+        if project.file_registry.get_by_id(file_for_change.id) is None:
+            LOG.warning(
+                "File %s not found in project. This may be due to a bug in the git log reader.",
+                file_for_change.id,
+            )
+
+        # print(file_for_change.id)
+        # for file in project.file_registry.all:
+        #     print(file.id, end=", ")
+        # print()
+
+
+
         change =  change_factory.create(
             commit=commit,
             change_type=ChangeType[getattr(change_dto, "type").name],
@@ -218,6 +231,18 @@ class MergeChangesTransformer:
             for c in changes:
                 c.file = file
             for f in files[1:]:
+                # print(f"before deleting a file print:{f.id}")
+                for ch in f.changes:
+                    ch.file = file
+                    if ch not in file.changes:
+                        file.changes.append(ch)
+
+                #DEBUG
+                for ch in project.change_registry.all:
+                    if ch.file == f:
+                        ch.file = file
+                        LOG.debug("Found change link to file for deletion outside the file changes list: %s", ch.id)
+
                 project.file_registry.delete(f)
 
     @staticmethod
@@ -242,7 +267,6 @@ class MergeChangesTransformer:
 
         for c in changes[1:]:
             c.annotated_lines = list(changes[0].annotated_lines)
-
 
 class CommitTransformer:
     @staticmethod
@@ -372,7 +396,6 @@ class CommitTransformer:
     @staticmethod
     def _get_parents_from_ids(parent_ids: List[str], project: GitProject) -> List[Commit]:
         return [p for pid in parent_ids if (p := project.commit_registry.get_by_id(pid)) is not None]
-
 
 class GitProjectTransformer:
     _branch_id: int = 0

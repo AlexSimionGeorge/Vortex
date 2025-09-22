@@ -7,6 +7,9 @@ from typing import List, Optional, Collection
 import uuid
 from src.inspector_git.utils.constants import DEV_NULL
 from datetime import datetime, timedelta
+from src.logger import get_logger
+
+LOG = get_logger(__name__)
 
 class GitAccountId(BaseModel):
     email: str
@@ -85,54 +88,112 @@ class GitProject(Project):
     class Config:
         arbitrary_types_allowed = True
 
+    def __str__(self):
+        return (
+            f"account reg: {len(self.account_registry.all)},\n"
+            f"commit reg: {len(self.commit_registry.all)},\n"
+            f"file reg: {len(self.file_registry.all)},\n"
+            f"change reg: {len(self.change_registry.all)}"
+        )
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, GitProject):
+            return NotImplemented
+        return (
+                self.name == other.name
+                and self.account_registry._map == other.account_registry._map
+                and self.commit_registry._map == other.commit_registry._map
+                and self.file_registry._map == other.file_registry._map
+                and self.change_registry._map == other.change_registry._map
+        )
+
     def _relink_objects(self):
         for account in self.account_registry.all:
-            if hasattr(account, "_commits"):
-                for c in account._commits:
-                    commit = self.commit_registry.get_by_id(c)
-                    account.commits.append(commit)
+            for c in account._commits:
+                commit = self.commit_registry.get_by_id(c)
+                if commit is None:
+                    LOG.warning(f"Could not find commit {c} in commit registry")
+                account.commits.append(commit)
+        del account._commits
 
         for commit in self.commit_registry.all:
-            if hasattr(commit, "_author"): # should never be none
-                author = self.account_registry.get_by_id(commit._author.__str__())
-                commit.author = author
-            if hasattr(commit, "_committer"): # should never be none
-                committer = self.account_registry.get_by_id(commit._committer.__str__())
-                commit.committer = committer
-            if hasattr(commit, "_parents"):
-                for p in commit._parents:
-                    commit.parents.append(self.commit_registry.get_by_id(p))
-            if hasattr(commit, "_children"):
-                for c in commit._children:
-                    commit.children.append(self.commit_registry.get_by_id(c))
-            if hasattr(commit, "_changes"):
-                for c in commit._changes:
-                    change = self.change_registry.get_by_id(c)
-                    commit.changes.append(change)
+            author = self.account_registry.get_by_id(commit._author.__str__())
+            if author is None:
+                LOG.warning(f"Could not find author {commit._author} in account registry")
+            commit.author = author
+
+            committer = self.account_registry.get_by_id(commit._committer.__str__())
+            if committer is None:
+                LOG.warning(f"Could not find committer {commit._committer} in account registry")
+            commit.committer = committer
+
+            for p in commit._parents:
+                parent = self.commit_registry.get_by_id(p)
+                if parent is None:
+                    LOG.warning(f"Could not find parent {p} in commit registry")
+                commit.parents.append(parent)
+
+            for c in commit._children:
+                child = self.commit_registry.get_by_id(c)
+                if child is None:
+                    LOG.warning(f"Could not find child {c} in commit registry")
+                commit.children.append(child)
+
+            for c in commit._changes:
+                change = self.change_registry.get_by_id(c)
+                if change is None:
+                    LOG.warning(f"Could not find change {c} in change registry")
+                commit.changes.append(change)
+
+            del commit._author
+            del commit._committer
+            del commit._parents
+            del commit._children
+            del commit._changes
 
         for file in self.file_registry.all:
-            if hasattr(file, "_changes"):
-                for c in file._changes:
-                    change = self.change_registry.get_by_id(c)
-                    file.changes.append(change)
+            for c in file._changes:
+                change = self.change_registry.get_by_id(c)
+                if change is None:
+                    LOG.warning(f"Could not find change {c} in change registry")
+                file.changes.append(change)
+
+            del file._changes
 
         for change in self.change_registry.all:
-            if hasattr(change, "_commit"): # should never be none
-                commit = self.commit_registry.get_by_id(change._commit)
-                change.commit = commit
-            if hasattr(change, "_file"): # should never be none
-                file = self.file_registry.get_by_id(change._file)
-                change.file = file
-            if hasattr(change, "_parent_commit") and change._parent_commit is not None:
+            commit = self.commit_registry.get_by_id(change._commit) # should field _commit must exist
+            if commit is None:
+                LOG.warning(f"Could not find commit {change._commit} in commit registry")
+            change.commit = commit
+
+            file = self.file_registry.get_by_id(change._file) # should field _file must exist
+            if file is None:
+                LOG.warning(f"Could not find file {change._file} in file registry")
+            change.file = file
+
+            if change._parent_commit is not None:
                 parent_commit = self.commit_registry.get_by_id(change._parent_commit)
+                if parent_commit is None:
+                    LOG.warning(f"Could not find parent commit {change._parent_commit} in commit registry")
                 change.parent_commit = parent_commit
-            if hasattr(change, "_annotated_lines"):
-                for c in change._annotated_lines:
-                    commit = self.commit_registry.get_by_id(c)
-                    change.annotated_lines.append(commit)
-            if hasattr(change, "_parent_change"):
+
+            for c in change._annotated_lines:
+                commit = self.commit_registry.get_by_id(c)
+                if commit is None:
+                    LOG.warning(f"Could not find commit {c} in commit registry")
+                change.annotated_lines.append(commit)
+
+            if change._parent_change is not None:
                 parent_change = self.change_registry.get_by_id(change._parent_change)
+                if parent_change is None:
+                    LOG.warning(f"Could not find parent change {change._parent_change} in change registry")
                 change.parent_change = parent_change
+
+            del change._commit
+            del change._file
+            del change._parent_commit
+            del change._annotated_lines
+            del change._parent_change
 
     def __reduce__(self):
         state = (
@@ -240,7 +301,7 @@ class File(BaseModel):
         # Instead of storing Student objects, store only IDs
         state = (self.is_binary,
                  [c.id for c in self.changes],
-                 self.id,)
+                 self.id)
         return self._rebuild, state
 
     @classmethod
@@ -534,7 +595,7 @@ class Change(BaseModel):
         obj._commit = commit_id
         obj._file = file_id
         obj._parent_commit = parent_commit_id
-        obj._annotated_line = annotated_line_ids
+        obj._annotated_lines = annotated_line_ids
         obj._parent_change = parent_change_id
 
         return obj
