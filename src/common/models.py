@@ -18,13 +18,16 @@ from src.logger import get_logger
 LOG = get_logger(__name__)
 
 class Project(BaseModel, ABC):
-    linked_projects: set[Project] = Field(default_factory=set)
+    linked_projects: List[Project] = Field(default_factory=list)
 
     class Config:
         arbitrary_types_allowed = True
 
     def link(self, other: Project) -> None:
-        self.linked_projects.add(other)
+        if other not in self.linked_projects:
+            self.linked_projects.append(other)
+        else:
+            LOG.warning(f"Project {other} is already linked to {self}")
 
     def is_linked(self, other: Project) -> bool:
         return other in self.linked_projects
@@ -463,6 +466,7 @@ class GitCommit(BaseModel):
     repo_size: int = 0
 
     issues: List[Issue] = Field(default_factory=list)
+    pull_requests: List[PullRequest] = Field(default_factory=list)
 
     class Config:
         arbitrary_types_allowed = True
@@ -774,6 +778,8 @@ class Issue(BaseModel):
     children: List["Issue"] = Field(default_factory=list)
 
     git_commits: List[GitCommit] = Field(default_factory=list)
+    pull_requests: List[PullRequest] = Field(default_factory=list)
+
 
     def __eq__(self, other):
         if not isinstance(other, Issue):
@@ -877,7 +883,11 @@ class PullRequest(BaseModel):
     createdBy: Optional[GitHubUser] = None
     assignees: List[GitHubUser] = Field(default_factory=list)
     mergedBy: Optional[GitHubUser] = None
-    git_hub_commits: List["GitHubCommit"] = Field(default_factory=list)
+    git_hub_commits: List[GitHubCommit] = Field(default_factory=list)
+
+    issues: List[Issue] = Field(default_factory=list)
+    git_commits: List[GitCommit] = Field(default_factory=list)
+
 
     def __eq__(self, other):
         if not isinstance(other, PullRequest):
