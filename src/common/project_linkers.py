@@ -46,7 +46,7 @@ class ProjectLinker:
         links = 0
         commits_linked_with_issues = 0
 
-        for commit in git_project.commit_registry.all:
+        for commit in git_project.git_commit_registry.all:
             if not commit.message:
                 continue
 
@@ -121,7 +121,7 @@ class ProjectLinker:
 
         for pr in gh_project.pull_request_registry.all:
             for pr_commit in pr.git_hub_commits:
-                git_commit = git_project.commit_registry.get_by_id(pr_commit.id)
+                git_commit = git_project.git_commit_registry.get_by_id(pr_commit.id)
                 if not git_commit:
                     continue
 

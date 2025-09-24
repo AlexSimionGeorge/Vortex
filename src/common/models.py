@@ -66,10 +66,6 @@ class Developer(BaseModel):
     class Config:
         arbitrary_types_allowed = True
 
-class ProjectManager(BaseModel):
-    name: str
-    projects: list[Project] = Field(default_factory=list)
-
 Account.model_rebuild()
 
 
@@ -144,7 +140,7 @@ class GitAccount(Account):
 class GitProject(Project):
     name: str
     account_registry: AccountRegistry = Field(default_factory=AccountRegistry)
-    commit_registry: CommitRegistry = Field(default_factory=CommitRegistry)
+    git_commit_registry: CommitRegistry = Field(default_factory=CommitRegistry)
     file_registry: FileRegistry = Field(default_factory=FileRegistry)
     change_registry: ChangeRegistry = Field(default_factory=ChangeRegistry)
 
@@ -154,7 +150,7 @@ class GitProject(Project):
     def __str__(self):
         return (
             f"account reg: {len(self.account_registry.all)},\n"
-            f"commit reg: {len(self.commit_registry.all)},\n"
+            f"commit reg: {len(self.git_commit_registry.all)},\n"
             f"file reg: {len(self.file_registry.all)},\n"
             f"change reg: {len(self.change_registry.all)}"
         )
@@ -165,7 +161,7 @@ class GitProject(Project):
         return (
                 self.name == other.name
                 and self.account_registry._map == other.account_registry._map
-                and self.commit_registry._map == other.commit_registry._map
+                and self.git_commit_registry._map == other.git_commit_registry._map
                 and self.file_registry._map == other.file_registry._map
                 and self.change_registry._map == other.change_registry._map
         )
@@ -173,14 +169,14 @@ class GitProject(Project):
     def _relink_objects(self):
         for account in self.account_registry.all:
             for c in account._commits:
-                commit = self.commit_registry.get_by_id(c)
+                commit = self.git_commit_registry.get_by_id(c)
                 if commit is None:
                     LOG.warning(f"Could not find commit {c} in commit registry")
                 account.commits.append(commit)
         del account._commits
         account.project = self
 
-        for commit in self.commit_registry.all:
+        for commit in self.git_commit_registry.all:
             author = self.account_registry.get_by_id(commit._author.__str__())
             if author is None:
                 LOG.warning(f"Could not find author {commit._author} in account registry")
@@ -192,13 +188,13 @@ class GitProject(Project):
             commit.committer = committer
 
             for p in commit._parents:
-                parent = self.commit_registry.get_by_id(p)
+                parent = self.git_commit_registry.get_by_id(p)
                 if parent is None:
                     LOG.warning(f"Could not find parent {p} in commit registry")
                 commit.parents.append(parent)
 
             for c in commit._children:
-                child = self.commit_registry.get_by_id(c)
+                child = self.git_commit_registry.get_by_id(c)
                 if child is None:
                     LOG.warning(f"Could not find child {c} in commit registry")
                 commit.children.append(child)
@@ -230,7 +226,7 @@ class GitProject(Project):
             file.project = self
 
         for change in self.change_registry.all:
-            commit = self.commit_registry.get_by_id(change._commit) # should field _commit must exist
+            commit = self.git_commit_registry.get_by_id(change._commit) # should field _commit must exist
             if commit is None:
                 LOG.warning(f"Could not find commit {change._commit} in commit registry")
             change.commit = commit
@@ -241,13 +237,13 @@ class GitProject(Project):
             change.file = file
 
             if change._parent_commit is not None:
-                parent_commit = self.commit_registry.get_by_id(change._parent_commit)
+                parent_commit = self.git_commit_registry.get_by_id(change._parent_commit)
                 if parent_commit is None:
                     LOG.warning(f"Could not find parent commit {change._parent_commit} in commit registry")
                 change.parent_commit = parent_commit
 
             for c in change._annotated_lines:
-                commit = self.commit_registry.get_by_id(c)
+                commit = self.git_commit_registry.get_by_id(c)
                 if commit is None:
                     LOG.warning(f"Could not find commit {c} in commit registry")
                 change.annotated_lines.append(commit)
@@ -268,7 +264,7 @@ class GitProject(Project):
         state = (
             self.name,
             list(self.account_registry.all),
-            list(self.commit_registry.all),
+            list(self.git_commit_registry.all),
             list(self.file_registry.all),
             list(self.change_registry.all),
         )
@@ -287,14 +283,14 @@ class GitProject(Project):
         obj = cls(
             name=name,
             account_registry=AccountRegistry(),
-            commit_registry=CommitRegistry(),
+            git_commit_registry=CommitRegistry(),
             file_registry=FileRegistry(),
             change_registry=ChangeRegistry(),
         )
 
         # Fill registries from the saved collections
         obj.account_registry.add_all(accounts)
-        obj.commit_registry.add_all(commits)
+        obj.git_commit_registry.add_all(commits)
         obj.file_registry.add_all(files)
         obj.change_registry.add_all(changes)
 

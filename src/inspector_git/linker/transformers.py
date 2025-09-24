@@ -307,7 +307,7 @@ class CommitTransformer:
             p.add_child(commit)
 
         LOG.debug("Adding commit to repository and to authors")
-        project.commit_registry.add(commit)
+        project.git_commit_registry.add(commit)
         author.commits.append(commit)
         if committer != author:
             committer.commits.append(commit)
@@ -387,7 +387,7 @@ class CommitTransformer:
 
     @staticmethod
     def _get_parents_from_ids(parent_ids: List[str], project: GitProject) -> List[GitCommit]:
-        return [p for pid in parent_ids if (p := project.commit_registry.get_by_id(pid)) is not None]
+        return [p for pid in parent_ids if (p := project.git_commit_registry.get_by_id(pid)) is not None]
 
 class GitProjectTransformer:
     _branch_id: int = 0
@@ -419,7 +419,7 @@ class GitProjectTransformer:
                 commit_dto, project, self.compute_annotated_lines, self.change_factory
             )
 
-        first_commit = next(iter(project.commit_registry.all), None)
+        first_commit = next(iter(project.git_commit_registry.all), None)
         if first_commit:
             self._compute_branch_ids(first_commit)
 
