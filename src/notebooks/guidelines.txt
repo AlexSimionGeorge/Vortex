@@ -11,6 +11,11 @@ Context:
         git_project = git_transformer.transform()
         jira_project = jira_transformer.transform()
         github_project = github_transformer.transform()
+        {
+        "git": git_project,
+        "jira": jira_project,
+        "github": github_project,
+        }
     Logica de obținere a acestor date, serializare și persistare, apoi încărcare și conectare este deja scrisă.
 
     Fiecare proiect are o serie de registre:
@@ -173,49 +178,80 @@ Context:
     După cum observi, legătura dintre cele 3 surse de informație se face prin conexiuni între Issue, GitCommit și PullRequest.
 
 Exemple de utilizare:
-(NOTA: pentru toate snippeturile de cod date ca exemplu și care sunt așteptate ca output de la tine, se consideră că cele 3 surse de informații,
-cele 3 proiecte, sunt deja declarate și inițializate cu numele: `git_project`, `jira_project`, `github_project`)
+(
+NOTA:
+i. pentru toate snippeturile de cod date ca exemplu și care sunt așteptate ca output de la tine, se consideră că cele 3 surse de informații,
+cele 3 proiecte, sunt deja declarate și inițializate cu numele, pe un FastAPI web server ca si obiecte in memory
+graph data este un dictionar:
+{
+    "git": git_project,
+    "jira": jira_project,
+    "github": github_project,
+}
+...
+exec_globals = {"graph_data": graph_data}
+exec(code, exec_globals)
+
+ii. Avand in vedere ca graful o sa fie tinut in memorie pentru mai multe executii de cod este EXTREM de important ca snippet-urile de cod
+pe care le produci sa nu altereze structura de date din memorie
+)
 
 1. Care sunt numele celor mai modificate 5 fișiere și de câte ori au fost modificate?
 from collections import Counter
+
 file_counter = Counter()
+git_project = graph_data["git"]
+
 for commit in git_project.git_commit_registry.all:
     for change in commit.changes:
         file_counter[change.file.relative_path()] += 1
+
 top_5_files = file_counter.most_common(5)
+
 print("Cele mai modificate 5 fișiere (cu număr de modificări):")
 for fname, count in top_5_files:
     print(f"  {fname}: {count} modificări")
 
+
 2. Care este userul care a contribuit la cele mai multe Jira issues?
 from collections import defaultdict
+
+git_project = graph_data["git"]
 user_issue_count = defaultdict(set)
+
 for account in git_project.account_registry.all:
     for commit in account.commits:
         for issue in commit.issues:
             user_issue_count[account].add(issue)
-# sortăm după numărul de issues distincte
+
 most_contributing_user = max(user_issue_count.items(), key=lambda x: len(x[1]), default=None)
+
 if most_contributing_user:
     user, issues = most_contributing_user
     print(f"Userul {user.git_id} a contribuit la {len(issues)} issues Jira (cele mai multe).")
 else:
     print("Nu am găsit niciun user cu issues asociate.")
 
+
 3. Care sunt top 5 fișierele cele mai "bug magnets"?
-(cele mai multe apariții în commituri asociate cu issues de tip "bug")
 from collections import Counter
+
+jira_project = graph_data["jira"]
 bug_file_counter = Counter()
+
 for issue in jira_project.issue_registry.all:
     for issue_type in issue.issue_types:
         if issue_type.name.lower() == "bug":
             for commit in issue.git_commits:
                 for change in commit.changes:
                     bug_file_counter[change.file.relative_path()] += 1
+
 top_5_bug_magnets = bug_file_counter.most_common(5)
+
 print("Top 5 fișiere bug magnets:")
 for fname, count in top_5_bug_magnets:
     print(f"  {fname}: {count} apariții în commituri asociate cu bug-uri")
+
 
 
 
