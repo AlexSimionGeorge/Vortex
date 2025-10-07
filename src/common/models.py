@@ -413,6 +413,17 @@ class File(BaseModel):
         last = self.get_last_change(commit)
         return getattr(last, "new_file_name", None) if last is not None else None
 
+    def last_existing_name(self, commit: Optional[GitCommit] = None) -> Optional[str]:
+        for change in reversed(self.changes):
+            if change.new_file_name != DEV_NULL:
+                return change.new_file_name
+
+        if self.changes:
+            return self.changes[-1].new_file_name
+
+        LOG.warning(f"Could not find last existing name for file {self.id}")
+        return None
+
     def get_last_change(self, commit: Optional[GitCommit] = None) -> Optional[Change]:
         if not self.changes:
             return None
